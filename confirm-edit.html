@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notice Shield — Confirm your details</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0A2540;
+    --paper: #FAF8F3;
+    --teal: #0F7B6C;
+    --teal-bg: #E1F0EC;
+    --amber: #C8862D;
+    --amber-bg: #FBEFDF;
+    --red: #B23B3B;
+    --red-bg: #FAEAEA;
+    --border: #E3DFD3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: 'Inter', sans-serif;
+    color: var(--navy);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    margin: 0 0 8px;
+  }
+  .sub { color: #5A5A52; font-size: 15px; margin: 0 0 28px; line-height: 1.5; }
+  .doc-section { margin-bottom: 32px; }
+  .doc-title {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    margin: 0 0 4px;
+  }
+  .doc-hint { font-size: 13px; color: #8A8678; margin: 0 0 14px; }
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-label { flex: 0 0 220px; font-size: 14px; color: #5A5A52; }
+  .field-input-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
+  input[type=text], input[type=number] {
+    flex: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--navy);
+  }
+  input:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
+  .conf-tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .conf-high { background: var(--teal-bg); color: var(--teal); }
+  .conf-medium { background: var(--amber-bg); color: var(--amber); }
+  .conf-low { background: var(--red-bg); color: var(--red); }
+  .conf-missing { background: #EFEDE4; color: #8A8678; }
+  .notice-banner {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--amber-bg);
+    border: 1px solid var(--amber);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #6B4A1A;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 8px;
+    padding: 12px 22px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-primary:hover { background: #123660; }
+  .btn-secondary { background: transparent; color: var(--navy); text-decoration: underline; }
+  .upload-block {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+    font-size: 14px;
+    color: #5A5A52;
+    margin-bottom: 18px;
+  }
+  .upload-block input[type=file] { display: block; margin: 10px auto 0; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Confirm your numbers</h1>
+  <p class="sub">We pulled these figures from your Form16 and AIS. Anything not marked "high" confidence needs a quick check — edit any number that looks wrong before we run your report.</p>
+
+  <div class="notice-banner">
+    <span>Nothing is sent for analysis until you confirm these numbers. Your report is generated only after you review everything below.</span>
+  </div>
+
+  <div class="doc-section" id="form16-section">
+    <p class="doc-title">From your Form16</p>
+    <p class="doc-hint">PAN ABCDE1234A · TAN BLRA12345B</p>
+    <div id="form16-fields"></div>
+  </div>
+
+  <div class="doc-section" id="ais-section">
+    <p class="doc-title">From your AIS</p>
+    <p class="doc-hint">Annual Information Statement</p>
+    <div id="ais-fields"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-secondary" id="back-btn" type="button">Back</button>
+    <button class="btn-primary" id="continue-btn" type="button">Looks right — continue</button>
+  </div>
+</div>
+
+<script>
+  // Extracted data shape matches extraction.py output exactly:
+  // { field_key: { value: number|string, confidence: "high"|"medium"|"low" } }
+  // In production this comes from the /api/extract response after upload.
+  // Placeholder sample data shown here for layout/testing purposes.
+  const FIELD_LABELS = {
+    gross_salary: "Gross salary",
+    standard_deduction: "Standard deduction",
+    chargeable_income: "Income chargeable (salaries)",
+    total_tds: "Total TDS deducted",
+    interest_income: "Interest income (savings/FD)",
+    salary_amount_reported: "Salary reported to AIS",
+    salary_tds_reported: "TDS reported to AIS",
+    tax_refund_interest: "Interest on tax refund",
+  };
+
+  let extractedData = {
+    form16: {
+      gross_salary: { value: 1250000, confidence: "high" },
+      standard_deduction: { value: 75000, confidence: "high" },
+      chargeable_income: { value: 1175000, confidence: "high" },
+      total_tds: { value: 142000, confidence: "medium" },
+    },
+    ais: {
+      interest_income: { value: 8200, confidence: "high" },
+      salary_amount_reported: { value: 1180000, confidence: "high" },
+      salary_tds_reported: { value: 142000, confidence: "high" },
+      tax_refund_interest: { value: 1150, confidence: "low" },
+    }
+  };
+
+  function confidenceTag(conf) {
+    const map = { high: "High", medium: "Check this", low: "Verify carefully" };
+    const cls = conf ? `conf-${conf}` : "conf-missing";
+    return `<span class="conf-tag ${cls}">${map[conf] || "Not found"}</span>`;
+  }
+
+  function renderFields(containerId, dataObj) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
+    Object.entries(dataObj).forEach(([key, entry]) => {
+      const label = FIELD_LABELS[key] || key;
+      const row = document.createElement("div");
+      row.className = "field-row";
+      row.innerHTML = `
+        <div class="field-label">${label}</div>
+        <div class="field-input-wrap">
+          <input type="text" data-key="${key}" data-doc="${containerId}" value="${entry.value ?? ''}">
+          ${confidenceTag(entry.confidence)}
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  renderFields("form16-fields", extractedData.form16);
+  renderFields("ais-fields", extractedData.ais);
+
+  document.getElementById("continue-btn").addEventListener("click", () => {
+    const confirmed = { form16: {}, ais: {} };
+    document.querySelectorAll("input[data-key]").forEach(input => {
+      const doc = input.dataset.doc === "form16-fields" ? "form16" : "ais";
+      const key = input.dataset.key;
+      const raw = input.value.replace(/,/g, "").trim();
+      confirmed[doc][key] = { value: raw ? Number(raw) : null, confidence: "user_confirmed" };
+    });
+    // In production: POST confirmed to /api/analyze, then redirect to the
+    // locked-preview screen, which itself gates the full report behind Razorpay.
+    console.log("Confirmed values ready for analysis:", confirmed);
+    alert("Numbers confirmed. Next: locked preview + payment screen.");
+  });
+
+  document.getElementById("back-btn").addEventListener("click", () => {
+    window.history.back();
+  });
+</script>
+</body>
+</html>

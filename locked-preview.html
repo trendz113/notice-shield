@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notice Shield — Your report is ready</title>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0A2540;
+    --paper: #FAF8F3;
+    --teal: #0F7B6C;
+    --teal-bg: #E1F0EC;
+    --amber: #C8862D;
+    --amber-bg: #FBEFDF;
+    --red: #B23B3B;
+    --red-bg: #FAEAEA;
+    --border: #E3DFD3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); font-family: 'Inter', sans-serif; color: var(--navy); }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 36px 20px 80px; }
+  .verdict-card {
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .verdict-red { background: var(--red-bg); border: 1px solid var(--red); }
+  .verdict-amber { background: var(--amber-bg); border: 1px solid var(--amber); }
+  .verdict-green { background: var(--teal-bg); border: 1px solid var(--teal); }
+  .verdict-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .dot-red { background: var(--red); }
+  .dot-amber { background: var(--amber); }
+  .dot-green { background: var(--teal); }
+  .verdict-text { font-family: 'Archivo', sans-serif; font-weight: 600; font-size: 17px; margin: 0; }
+  h1 { font-family: 'Archivo', sans-serif; font-weight: 600; font-size: 22px; margin: 0 0 18px; }
+  .preview-list { margin: 0 0 28px; padding: 0; list-style: none; }
+  .preview-item {
+    position: relative;
+    padding: 16px 18px 16px 44px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    background: #fff;
+    filter: blur(3.5px);
+    user-select: none;
+    font-size: 14px;
+  }
+  .preview-item::before {
+    content: "🔒";
+    position: absolute;
+    left: 14px;
+    top: 16px;
+    filter: none;
+  }
+  .preview-item .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .tag-red { background: var(--red-bg); color: var(--red); }
+  .tag-amber { background: var(--amber-bg); color: var(--amber); }
+  .unlock-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+  .price { font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 500; margin: 6px 0 4px; }
+  .price-sub { font-size: 13px; color: #8A8678; margin: 0 0 18px; }
+  .includes { text-align: left; margin: 0 0 22px; padding: 0; list-style: none; font-size: 14px; }
+  .includes li { padding: 6px 0; display: flex; gap: 8px; align-items: flex-start; }
+  .includes li::before { content: "✓"; color: var(--teal); font-weight: 600; }
+  button.pay-btn {
+    width: 100%;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button.pay-btn:hover { background: #123660; }
+  button.pay-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .secure-note { font-size: 12px; color: #8A8678; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="verdict-card verdict-amber" id="verdict-card">
+    <div class="verdict-dot dot-amber"></div>
+    <p class="verdict-text" id="verdict-text">We found 2 issues that may trigger a notice</p>
+  </div>
+
+  <h1>Your full report is ready to unlock</h1>
+
+  <ul class="preview-list" id="preview-list">
+    <li class="preview-item">
+      <span class="tag tag-red">Salary mismatch</span>
+      <div>Form16 shows a gross salary that does not match what your employer reported to AIS. The exact figures and what to do about it are in your unlocked report.</div>
+    </li>
+    <li class="preview-item">
+      <span class="tag tag-amber">Interest income</span>
+      <div>Your bank reported interest income that may not be reflected in your return. Full details and the fix are in your unlocked report.</div>
+    </li>
+  </ul>
+
+  <div class="unlock-card">
+    <p class="price-sub">One-time payment, no subscription</p>
+    <p class="price">₹149</p>
+    <ul class="includes">
+      <li>Full plain-English risk report — every issue explained, no jargon</li>
+      <li>Step-by-step fix instructions for each flagged issue</li>
+      <li>Ready-to-use response letter for the e-Proceedings portal</li>
+      <li>Downloadable Excel workbook — mismatch summary + document checklist</li>
+    </ul>
+    <button class="pay-btn" id="pay-btn">Pay ₹149 and unlock report</button>
+    <p class="secure-note">Secured by Razorpay. Your payment details never touch our servers.</p>
+  </div>
+
+</div>
+
+<script>
+  // In production, API_BASE points to the Notice Shield Railway service.
+  const API_BASE = window.location.hostname === "localhost" || window.location.hostname === ""
+    ? "http://localhost:5000"
+    : "https://web-production-796d.up.railway.app";
+
+  const payBtn = document.getElementById("pay-btn");
+
+  payBtn.addEventListener("click", async () => {
+    payBtn.disabled = true;
+    payBtn.textContent = "Setting up payment...";
+
+    try {
+      // Step 1: ask our backend to create a Razorpay order server-side.
+      // The backend holds the Razorpay key secret; the frontend only
+      // ever sees the public key_id and the order_id it creates.
+      const orderRes = await fetch(`${API_BASE}/api/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 14900, currency: "INR", purpose: "notice_shield_report" })
+      });
+      if (!orderRes.ok) throw new Error("Could not start payment. Try again.");
+      const order = await orderRes.json();
+
+      // Step 2: open Razorpay checkout with that order.
+      const options = {
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: "SalaryBit — Notice Shield",
+        description: "Tax notice risk report",
+        handler: async function (response) {
+          // Step 3: verify payment server-side, THEN unlock the report.
+          // Never unlock client-side on the handler firing alone —
+          // the signature must be verified by the backend first.
+          payBtn.textContent = "Verifying payment...";
+          const verifyRes = await fetch(`${API_BASE}/api/verify-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          });
+          if (verifyRes.ok) {
+            window.location.href = "/report.html?paid=1&order=" + response.razorpay_order_id;
+          } else {
+            alert("Payment verification failed. If money was deducted, it will be refunded — contact support with your payment ID: " + response.razorpay_payment_id);
+            payBtn.disabled = false;
+            payBtn.textContent = "Pay ₹149 and unlock report";
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            payBtn.disabled = false;
+            payBtn.textContent = "Pay ₹149 and unlock report";
+          }
+        },
+        theme: { color: "#0A2540" }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+      payBtn.textContent = "Pay ₹149 and unlock report";
+      payBtn.disabled = false;
+    } catch (err) {
+      alert(err.message || "Something went wrong starting payment.");
+      payBtn.disabled = false;
+      payBtn.textContent = "Pay ₹149 and unlock report";
+    }
+  });
+</script>
+</body>
+</html>
