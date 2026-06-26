@@ -417,11 +417,7 @@
 const isLocal = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 const API_BASE = isLocal
   ? "http://localhost:3000"
-  // IMPORTANT: this must be the URL of the NEW, SEPARATE Railway service
-  // you create just for Notice Shield — NOT your existing SalaryBit API
-  // (web-production-456eb...). Keeping them separate means a bug here
-  // can never crash Tax AI / Insurance Mitra / your other live tools.
-  : "https://REPLACE-WITH-YOUR-NEW-NOTICE-SHIELD-SERVICE.up.railway.app";
+  : "https://web-production-796d.up.railway.app";
 
 // ---------- View switching ----------
 function showView(id){
