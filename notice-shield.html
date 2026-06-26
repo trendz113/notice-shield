@@ -329,6 +329,16 @@
 
   .actions-row{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;}
 
+  .upsell-box{
+    margin-top:28px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+    font-size:14px;
+    color:var(--warmgray);
+  }
+  .upsell-box strong{color:var(--ink);}
+  .upsell-box a{font-weight:600;}
+
   footer{
     border-top:1px solid var(--line);
     padding:28px 0 50px;
@@ -504,6 +514,10 @@ async function selectSection(section){
       <button class="btn" onclick="generateLetter('${section}')">Draft my response letter</button>
       <div id="letter-loading" class="loading" style="display:none;"><div class="spinner"></div> Drafting your letter…</div>
       <div id="letter-result"></div>
+
+      <div class="upsell-box">
+        <p><strong>Want the precise version of this check?</strong> This page works off what you tell us. If you'd rather we cross-check your actual Form16 and AIS line by line — and get a downloadable Excel report — try <a href="/notice-shield-full.html">the full document check</a>.</p>
+      </div>
     `;
   }catch(e){
     document.getElementById('notice-loading').style.display = 'none';
@@ -606,6 +620,9 @@ async function submitRiskCheck(){
     document.getElementById('risk-result').innerHTML = `
       <div class="verdict-banner ${data.verdict}">${verdictLabel}</div>
       <div class="report-text">${data.report}</div>
+      <div class="upsell-box">
+        <p><strong>Want the precise version of this check?</strong> This was based on your answers, not your actual numbers. For a line-by-line check against your real Form16 and AIS — plus a downloadable Excel report and response letter — try <a href="/notice-shield-full.html">the full document check</a>.</p>
+      </div>
     `;
   }catch(e){
     document.getElementById('risk-loading').style.display = 'none';
