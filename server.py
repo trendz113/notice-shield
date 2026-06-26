@@ -19,11 +19,11 @@ import os
 import json
 import hmac
 import hashlib
+import base64
 import urllib.request
 import urllib.error
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import razorpay
 import io
 
 from extraction import decrypt_ais_pdf, extract_form16, extract_ais
@@ -37,9 +37,35 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
 
-razorpay_client = None
-if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
-    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+def razorpay_create_order(amount: int, currency: str = "INR") -> dict:
+    """
+    Calls Razorpay's REST API directly via urllib instead of the razorpay
+    SDK, so there's no extra package for Railway's build to fail to install
+    (the same failure mode that hit the 'requests' library earlier).
+    Auth is HTTP Basic with key_id:key_secret — identical to what the SDK
+    does internally, just without the dependency.
+    """
+    auth = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
+    body = json.dumps({
+        "amount": amount,
+        "currency": currency,
+        "payment_capture": 1,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.razorpay.com/v1/orders",
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Basic {auth}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Razorpay API error: {e.read().decode()}")
+
+
+razorpay_configured = bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)
 
 # In-memory store of verified payments for this process.
 # NOTE: this resets on every deploy/restart. For production durability
@@ -120,7 +146,7 @@ def api_analyze():
 
 @app.route("/api/create-order", methods=["POST"])
 def api_create_order():
-    if not razorpay_client:
+    if not razorpay_configured:
         return jsonify({"error": "Payment is not configured on this server."}), 500
 
     data = request.get_json(force=True) or {}
@@ -128,11 +154,7 @@ def api_create_order():
     currency = data.get("currency", "INR")
 
     try:
-        order = razorpay_client.order.create({
-            "amount": amount,
-            "currency": currency,
-            "payment_capture": 1,
-        })
+        order = razorpay_create_order(amount, currency)
     except Exception as e:
         return jsonify({"error": f"Could not create order: {str(e)}"}), 500
 
