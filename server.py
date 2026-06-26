@@ -29,6 +29,7 @@ import io
 from extraction import decrypt_ais_pdf, extract_form16, extract_ais
 from analysis import analyze
 from excel_report import build_workbook
+from notice_data import get_notice_types_list, get_notice_detail, RISK_BUCKETS
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
@@ -79,6 +80,116 @@ VERIFIED_PAYMENTS = set()
 @app.route("/health")
 def health():
     return jsonify({"service": "Notice Shield API", "status": "ok"})
+
+
+# ---------------------------------------------------------------------------
+# Free tier: guided notice playbook + quick risk check.
+# These power the live notice-shield.html page (no payment, no PDF upload —
+# the fast, free entry point for someone who just got a notice or is
+# generally worried). Kept on the same Flask app as the paid upload-based
+# tool below; they don't share any state or routes with each other.
+# ---------------------------------------------------------------------------
+
+@app.route("/api/notice-types", methods=["GET"])
+def api_notice_types():
+    return jsonify(get_notice_types_list())
+
+
+def build_letter_from_facts_prompt(notice_entry: dict, user_facts: str) -> str:
+    return f"""Draft a short, plain-language response letter for the Income Tax
+e-Proceedings portal, addressing a {notice_entry['section']} notice
+({notice_entry['label']}).
+
+The person describes their situation as follows — use ONLY these facts,
+never invent dates, amounts, or documents not mentioned here:
+"{user_facts}"
+
+Format as a brief formal letter: salutation, 2-3 short paragraphs explaining
+their position factually based only on what they described, and a closing
+line offering to submit supporting documents if required."""
+
+
+@app.route("/api/notice-help", methods=["POST"])
+def api_notice_help():
+    data = request.get_json(force=True) or {}
+    section = data.get("noticeSection")
+    user_facts = data.get("userFacts")
+
+    if not section:
+        return jsonify({"error": "Please select a notice section."}), 400
+
+    entry = get_notice_detail(section)
+    if not entry:
+        return jsonify({"error": f"'{section}' isn't a section we recognize. Double-check the number on your notice."}), 404
+
+    response = {
+        "label": entry["label"],
+        "deadlineNote": entry["deadlineNote"],
+        "isWorrying": entry["isWorrying"],
+        "plain": entry["plain"],
+        "actionSteps": entry["actionSteps"],
+    }
+
+    # Letter drafting is a separate, optional second call from the same
+    # endpoint (the frontend re-calls this route with userFacts filled in).
+    if user_facts and user_facts.get("description"):
+        try:
+            letter = call_claude(build_letter_from_facts_prompt(entry, user_facts["description"]))
+            response["letter"] = letter
+        except Exception as e:
+            return jsonify({"error": f"Could not draft the letter: {str(e)}"}), 502
+
+    return jsonify(response)
+
+
+@app.route("/api/risk-buckets", methods=["GET"])
+def api_risk_buckets():
+    return jsonify(RISK_BUCKETS)
+
+
+def build_quick_risk_prompt(flagged_questions: list[str]) -> str:
+    flags_text = "\n".join(f"- {q}" for q in flagged_questions) or "Nothing was flagged."
+    return f"""You are writing a short, plain-English tax notice risk summary for an
+Indian salaried taxpayer, based only on a quick self-assessment quiz (not
+actual document data). Use only the facts given below — never invent
+specific numbers, since none were provided.
+
+The person flagged these areas as "no" or "not sure":
+{flags_text}
+
+Write a short summary (under 200 words):
+1. One-sentence honest verdict in plain English
+2. For each flagged area, one or two plain sentences on why it matters and
+   what document or fix to look into
+3. If nothing was flagged, reassure them briefly and clearly
+4. End with one line suggesting that for a precise, document-based check
+   (comparing their actual Form16 and AIS line by line), the full Notice
+   Shield report tool can do that — without being pushy about it
+
+Do not use the word "taxpayer" — say "you". No legal jargon."""
+
+
+@app.route("/api/risk-check", methods=["POST"])
+def api_risk_check():
+    data = request.get_json(force=True) or {}
+    answers = data.get("answers", {})
+
+    bucket_lookup = {b["id"]: b["question"] for b in RISK_BUCKETS}
+    flagged = [bucket_lookup[k] for k, v in answers.items() if v == "flagged" and k in bucket_lookup]
+
+    if not flagged:
+        verdict = "green"
+    elif len(flagged) <= 2:
+        verdict = "amber"
+    else:
+        verdict = "red"
+
+    try:
+        report_text = call_claude(build_quick_risk_prompt(flagged), max_tokens=500)
+    except Exception as e:
+        return jsonify({"error": f"Could not generate report: {str(e)}"}), 502
+
+    return jsonify({"verdict": verdict, "report": report_text})
 
 
 @app.route("/api/extract", methods=["POST"])
