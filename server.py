@@ -13,7 +13,8 @@
 import os
 import json
 import traceback
-import requests
+import urllib.request
+import urllib.error
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -107,25 +108,32 @@ def call_claude(prompt):
     if not ANTHROPIC_API_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY is not set on this service.")
 
-    response = requests.post(
+    payload = json.dumps({
+        "model": CLAUDE_MODEL,
+        "max_tokens": 1500,
+        "messages": [{"role": "user", "content": prompt}],
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
         ANTHROPIC_URL,
+        data=payload,
+        method="POST",
         headers={
             "Content-Type": "application/json",
             "x-api-key": ANTHROPIC_API_KEY,
             "anthropic-version": "2023-06-01",
         },
-        json={
-            "model": CLAUDE_MODEL,
-            "max_tokens": 1500,
-            "messages": [{"role": "user", "content": prompt}],
-        },
-        timeout=30,
     )
 
-    if not response.ok:
-        raise RuntimeError(f"Claude API error {response.status_code}: {response.text}")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Claude API error {e.code}: {body}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Could not reach Claude API: {e.reason}")
 
-    data = response.json()
     for block in data.get("content", []):
         if block.get("type") == "text":
             return block.get("text", "")
