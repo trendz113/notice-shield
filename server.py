@@ -1,39 +1,36 @@
 # server.py
 # Tax Notice Shield backend — standalone Flask service for Railway.
-# Deliberately a SEPARATE service from your main salarybit server_railway.py,
-# so a bug here can never crash Tax AI / Insurance Mitra / other live tools.
+# Deliberately its OWN repo + Railway service (separate from your main
+# salarybit / server_railway.py), so a bug here can never crash
+# Tax AI / Insurance Mitra / your other live tools.
 #
 # Two main flows:
 #   POST /api/risk-check   -> Entry A: preventive checker, guided answers in
 #   POST /api/notice-help  -> Entry B: user already has a notice
 #
-# Uses GROQ_API_KEY (same provider as your other tools), not Anthropic.
+# Uses ANTHROPIC_API_KEY (Claude), per your choice for this service.
 
 import os
 import json
 import traceback
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from groq import Groq
 
 from notice_data import NOTICE_TYPES, RISK_BUCKETS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL = "openai/gpt-oss-120b"  # current Groq model as of June 2026;
-# llama-3.3-70b-versatile and llama-3.1-8b-instant were deprecated June 17 2026 —
-# check https://console.groq.com/docs/models if this stops working later.
-
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 
 
 # ---------- Deterministic scoring (no AI here — this must be reliable) ----------
 
 def score_risk_answers(answers):
     """answers: { bucket_id: 'yes_ok' | 'flagged' | 'not_applicable' }"""
-    bucket_by_id = {b["id"]: b for b in RISK_BUCKETS}
     flagged, clear, skipped = [], [], []
 
     for bucket in RISK_BUCKETS:
@@ -104,17 +101,35 @@ Write a formal response letter that:
 Output only the letter text, ready to copy into a PDF, no preamble or explanation."""
 
 
-# ---------- Groq call ----------
+# ---------- Claude API call ----------
 
-def call_groq(prompt):
-    if groq_client is None:
-        raise RuntimeError("GROQ_API_KEY is not set on this service.")
-    completion = groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}],
+def call_claude(prompt):
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set on this service.")
+
+    response = requests.post(
+        ANTHROPIC_URL,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+        },
+        json={
+            "model": CLAUDE_MODEL,
+            "max_tokens": 1500,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=30,
     )
-    return completion.choices[0].message.content or ""
+
+    if not response.ok:
+        raise RuntimeError(f"Claude API error {response.status_code}: {response.text}")
+
+    data = response.json()
+    for block in data.get("content", []):
+        if block.get("type") == "text":
+            return block.get("text", "")
+    return ""
 
 
 # ---------- Routes ----------
@@ -129,7 +144,7 @@ def risk_check():
 
         flagged, clear, skipped, verdict = score_risk_answers(answers)
         prompt = build_risk_report_prompt(flagged, verdict)
-        report_text = call_groq(prompt)
+        report_text = call_claude(prompt)
 
         return jsonify({
             "verdict": verdict,
@@ -160,7 +175,7 @@ def notice_help():
         letter = None
         if user_facts:
             letter_prompt = build_notice_letter_prompt(notice_section, user_facts)
-            letter = call_groq(letter_prompt)
+            letter = call_claude(letter_prompt)
 
         return jsonify({
             "section": notice_section,
