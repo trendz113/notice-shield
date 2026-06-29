@@ -1,6 +1,7 @@
 """
-Notice Shield backend.
-Routes:
+Notice Shield + Fix Your Finance Now backend.
+
+Routes (Notice Shield):
   GET  /health
   POST /api/extract        - upload Form16 + AIS PDFs, returns extracted fields w/ confidence
   POST /api/analyze        - takes confirmed fields, returns deterministic risk analysis
@@ -10,10 +11,18 @@ Routes:
                               Claude-written plain-English report + letter
   GET  /api/download-excel - PAID. Returns the Excel workbook for a completed analysis
 
-Security note: report generation and Excel download both require a verified
-payment_id that has been checked server-side via /api/verify-payment. The
-frontend can be fully open-source and inspected; it cannot unlock anything
-on its own.
+Routes (Fix Your Finance Now) — registered near the bottom of this file,
+defined in fix_finance_routes.py:
+  POST /api/fix-finance/analyze
+  POST /api/fix-finance/create-order
+  POST /api/fix-finance/verify-payment
+  POST /api/fix-finance/report
+  POST /api/fix-finance/download-pdf
+
+Security note: report generation and Excel/PDF download both require a
+verified payment_id that has been checked server-side via the relevant
+/verify-payment route. The frontend can be fully open-source and
+inspected; it cannot unlock anything on its own.
 """
 import os
 import json
@@ -30,6 +39,7 @@ from extraction import decrypt_ais_pdf, extract_form16, extract_ais
 from analysis import analyze
 from excel_report import build_workbook
 from notice_data import get_notice_types_list, get_notice_detail, RISK_BUCKETS
+from fix_finance_routes import register_fix_finance_routes
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
@@ -434,6 +444,24 @@ def api_download_excel():
         as_attachment=True,
         download_name="notice-shield-report.xlsx",
     )
+
+
+# ---------------------------------------------------------------------------
+# Fix Your Finance Now: register routes here, at the bottom, since this is
+# the first point in the file where every dependency it needs
+# (razorpay_create_order, call_claude, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
+# razorpay_configured) has already been defined above. See
+# fix_finance_routes.py for the route implementations themselves — nothing
+# above this block was changed to add Fix Finance.
+# ---------------------------------------------------------------------------
+register_fix_finance_routes(
+    app,
+    razorpay_create_order,
+    call_claude,
+    RAZORPAY_KEY_ID,
+    RAZORPAY_KEY_SECRET,
+    razorpay_configured,
+)
 
 
 if __name__ == "__main__":
